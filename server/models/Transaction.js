@@ -510,20 +510,22 @@ export default (Sequelize, DataTypes) => {
   };
 
   const getTransactionWithNestedProperties = async (transaction) => {
-    // f.slug as "fromCollectiveSlug",
-    if (transaction.FromCollectiveId) {
-      const fromCollective = await models.Collective.findById(transaction.FromCollectiveId);
-      transaction.fromCollectiveSlug = fromCollective.slug;
-    }
-    if (transaction.CollectiveId) {
-      const collective = await models.Collective.findById(transaction.CollectiveId);
-      transaction.collectiveSlug = collective.slug;
-    }
+    const fromCollective = await models.Collective.findById(transaction.FromCollectiveId);
+    transaction.fromCollectiveSlug = fromCollective.slug;
+    const collective = await models.Collective.findById(transaction.CollectiveId);
+    transaction.collectiveSlug = collective.slug;
+    // get transaction DEBIT equivalent
+    const debitTransaction = models.Transaction.findOne({
+      attributes: ['id'],
+      where: {
+        TransactionGroup: transaction.TransactionGroup,
+        type: 'DEBIT',
+      },
+    });
+    transaction.debitId = debitTransaction.id;
     if (transaction.HostCollectiveId) {
       const hostCollective = await models.Collective.findById(transaction.HostCollectiveId);
       transaction.hostCollectiveSlug = hostCollective.slug;
-    }
-    if (transaction.HostCollectiveId) {
       const paymentMethod = await models.PaymentMethod.findById(transaction.PaymentMethodId);
       transaction.paymentMethodService = paymentMethod.service;
       transaction.paymentMethodType = paymentMethod.type;
