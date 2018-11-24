@@ -5,6 +5,14 @@ import { getFxRate } from '../lib/currency';
 import { exportToCSV } from '../lib/utils';
 import { toNegative } from '../lib/math';
 
+const ledgerTransactionCategories = Object.freeze({
+  PLATFORM: 'Platform Fee',
+  PAYMENT_PROVIDER: 'Payment Provider Fee',
+  WALLET_PROVIDER: 'Wallet Provider Fee',
+  ACCOUNT: 'Account to Account',
+  CURRENCY_CONVERSION: 'Currency Conversion',
+});
+
 /**
  * Export transactions as CSV
  * @param {*} transactions
@@ -159,6 +167,75 @@ export async function createTransactionFromInKindDonation(expenseTransaction) {
     paymentProcessorFeeInHostCurrency: expenseTransaction.paymentProcessorFeeInHostCurrency,
     ExpenseId: expenseTransaction.ExpenseId,
   });
+}
+
+/**
+ * Gets "ledger"(from the ledger service) transactions and format them
+ * to the api transactions
+ * @param {Array} transactions - array of transactions representing one "legacy" transaction
+ * @return {Object} returns a transaction with a similar format of the model Transaction
+ */
+export function parseLedgerTransactionToApiFormat(legacyId, transactions) {
+  const platformFeeTransaction = transactions.filter(t => {
+    return t.category === (t.category === ledgerTransactionCategories.PLATFORM
+      || t.category === `REFUND: ${ledgerTransactionCategories.PLATFORM}`)
+    && t.type === 'DEBIT';
+  });
+  const paymentFeeTransaction = transactions.filter(t => {
+    return t.category === (t.category === ledgerTransactionCategories.PAYMENT_PROVIDER
+      || t.category === `REFUND: ${ledgerTransactionCategories.PAYMENT_PROVIDER}`)
+    && t.type === 'DEBIT';
+  }); 
+  const hostFeeTransaction = transactions.filter(t => {
+    return (t.category === ledgerTransactionCategories.WALLET_PROVIDER
+      || t.category === `REFUND: ${ledgerTransactionCategories.WALLET_PROVIDER}`)
+    && t.type === 'DEBIT';
+  });
+  const accountTransaction = transactions.filter(t => {
+    return (t.category === ledgerTransactionCategories.ACCOUNT
+      || t.category === `REFUND: ${ledgerTransactionCategories.ACCOUNT}`)
+    && t.type === 'CREDIT';
+  });
+  // const currencyConversionTransaction = transactions.filter(t => {
+  //   return (t.category === ledgerTransactionCategories.CURRENCY_CONVERSION
+  //     || t.category === `REFUND: ${ledgerTransactionCategories.CURRENCY_CONVERSION}`)
+  //   && t.type === 'CREDIT';
+  // });
+  const hostFeeInHostCurrency = hostFeeTransaction.length > 0 ? hostFeeTransaction[0].amount : 0;
+  const platformFeeInHostCurrency = platformFeeTransaction.length > 0 ? platformFeeTransaction[0].amount : 0;
+  const paymentProcessorFeeInHostCurrency = paymentFeeTransaction.length > 0 ? paymentFeeTransaction[0].amount : 0;
+  const amount = accountTransaction[0].amount;
+  let netAmountInCollectiveCurrency = amount + hostFeeInHostCurrency
+    + platformFeeInHostCurrency + paymentProcessorFeeInHostCurrency;
+  const currency = accountTransaction[0].forexRateSourceCoin;
+  const hostCurrency = accountTransaction[0].forexRateDestinationCoin;
+  const forexRate = accountTransaction[0].forexRate;
+  if (currency != hostCurrency) {
+    netAmountInCollectiveCurrency = netAmountInCollectiveCurrency * forexRate;
+  }
+  return {
+    id: legacyId,
+    amount: amount,
+    currency: currency,
+    hostCurrency: hostCurrency,
+    hostCurrencyFxRate: forexRate,
+    netAmountInCollectiveCurrency: netAmountInCollectiveCurrency,
+    hostFeeInHostCurrency: hostFeeInHostCurrency,
+    platformFeeInHostCurrency: platformFeeInHostCurrency,
+    paymentProcessorFeeInHostCurrency: paymentProcessorFeeInHostCurrency,
+    fromCollective: { id: parseInt(accountTransaction[0].FromAccountId) },
+    collective: { id: parseInt(accountTransaction[0].ToAccountId) },
+    type: 'CREDIT', // NOT Good YET
+    description: accountTransaction[0].description,
+    createdAt: accountTransaction[0].createdAt,
+    updatedAt: accountTransaction[0].updatedAt,
+    // uuid: { type: GraphQLString },
+    // createdByUser: { type: UserType },
+    // host: { type: CollectiveInterfaceType },
+    // paymentMethod: { type: PaymentMethodType },
+    // privateMessage: { type: GraphQLString },
+    // refundTransaction: { type: TransactionInterfaceType },
+  };
 }
 
 /**
