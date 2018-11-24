@@ -1,5 +1,8 @@
+import algoliasearch from 'algoliasearch';
+import axios from 'axios';
+import config from 'config';
 import Promise from 'bluebird';
-import { find, get, uniq } from 'lodash';
+import queryString from 'query-string';
 
 import algolia from '../../lib/algolia';
 import errors from '../../lib/errors';
@@ -38,9 +41,11 @@ import {
   PaymentMethodType,
 } from './types';
 
+import { find, get, groupBy, uniq } from 'lodash';
 import models, { sequelize, Op } from '../../models';
 import rawQueries from '../../lib/queries';
 import { fetchCollectiveId } from '../../lib/cache';
+import { parseLedgerTransactionToApiFormat } from '../../lib/transactions';
 
 const queries = {
   Collective: {
@@ -299,7 +304,8 @@ const queries = {
   /*
    * Given a collective slug or id, returns all its transactions
    */
-  allTransactions: {
+  allTransactionsOld: {
+  // allTransactions: {
     type: new GraphQLList(TransactionInterfaceType),
     description: `
     Given a collective, returns all its transactions:
@@ -335,6 +341,52 @@ const queries = {
         startDate: args.dateFrom,
         endDate: args.dateTo,
       });
+    },
+  },
+
+  /*
+   * Given a collective slug, returns all transactions with the normalized
+   * Ledger transactions table
+   */
+  // allTransactionsFromLedger: {
+  allTransactions: {
+    type: new GraphQLList(TransactionInterfaceType),
+    args: {
+      CollectiveId: { type: GraphQLInt },
+      collectiveSlug: { type: GraphQLString },
+      type: { type: GraphQLString },
+      limit: { type: GraphQLInt },
+      offset: { type: GraphQLInt },
+      dateFrom: { type: GraphQLString },
+      dateTo: { type: GraphQLString },
+      includeVirtualCards: { type: GraphQLBoolean },
+    },
+    async resolve(_, args) {
+      const query = {
+        where: {},
+      };
+      const CollectiveId =
+        args.CollectiveId || (await fetchCollectiveId(args.collectiveSlug));
+      if (CollectiveId && !args.includeVirtualCards)
+        query.where.ToAccountId = `${CollectiveId}`;
+      if (args.type) query.where.type = args.type;
+      if (args.limit) query.limit = args.limit;
+      if (args.offset) query.offset = args.offset;
+
+      // Add date ranges to the query
+      if (args.dateFrom || args.dateTo) {
+        query.where.createdAt = {};
+        if (args.dateFrom) query.where.createdAt[Op.gte] = args.dateFrom;
+        if (args.dateTo) query.where.createdAt[Op.lte] = args.dateTo;
+      }
+      query.where = JSON.stringify(query.where);
+      const transactionsEndpointResult = await axios.get(`${config.ledger.suffixTransactionUrl}?${queryString.stringify(query)}`);
+      const ledgerTransactions = groupBy(transactionsEndpointResult.data || [], 'LegacyCreditTransactionId');
+      const apiTransactions = [];
+      for (const [key,value] of Object.entries(ledgerTransactions)){
+          apiTransactions.push(parseLedgerTransactionToApiFormat(key, value));
+      }
+      return apiTransactions;
     },
   },
 
