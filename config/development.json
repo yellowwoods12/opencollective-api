@@ -29,7 +29,7 @@
   },
   "ledger": {
     "url": "http://localhost:3070",
-    "postTransactionUrl": "http://localhost:3070/transactions"
+    "suffixTransactionUrl": "http://localhost:3070/transactions"
   },
   "ledgerQueue": {
     "url": "amqp://localhost",
