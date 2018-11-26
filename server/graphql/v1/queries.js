@@ -325,22 +325,7 @@ const queries = {
       includeVirtualCards: { type: GraphQLBoolean },
     },
     async resolve(_, args) {
-      // Load collective
-      const { CollectiveId, collectiveSlug } = args;
-      if (!CollectiveId && !collectiveSlug) throw new Error('You must specify a collective ID or a Slug');
-      const where = CollectiveId ? { id: CollectiveId } : { slug: collectiveSlug };
-      const collective = await models.Collective.findOne({ where });
-      if (!collective) throw new Error('This collective does not exist');
-
-      // Load transactions
-      return collective.getTransactions({
-        order: [['createdAt', 'DESC']],
-        type: args.type,
-        limit: args.limit,
-        offset: args.offset,
-        startDate: args.dateFrom,
-        endDate: args.dateTo,
-      });
+      return getAllTransactions(_, args);
     },
   },
 
@@ -362,29 +347,55 @@ const queries = {
       includeVirtualCards: { type: GraphQLBoolean },
     },
     async resolve(_, args) {
-      const query = {
-        where: {},
+      args.CollectiveId = args.CollectiveId || (await fetchCollectiveId(args.collectiveSlug));
+      // some legacy information needed and the reasons why in the comments on the array
+      const legacyInformationArray = [
+        'id',
+        'uuid', // because the stored invoice pdf in aws uses the uuid as reference
+        'UsingVirtualCardFromCollectiveId', // because virtual cards will only work for wallets and we're skipping wallets in the transactions details for now
+        'HostCollectiveId', // because we're skipping wallets and using host on transactions details for now
+        'RefundTransactionId', // because the ledger refundTransactionId refers to the ledger id and not the legacy one
+      ];
+      const getAlltransactionsResult = await getAllTransactions(_, args, legacyInformationArray);
+      const ledgerQuery = {
+        where: {
+          ToAccountId: args.CollectiveId,
+        },
+        limit: args.limit,
+        offset: args.offset,
       };
-      const CollectiveId =
-        args.CollectiveId || (await fetchCollectiveId(args.collectiveSlug));
-      if (CollectiveId && !args.includeVirtualCards)
-        query.where.ToAccountId = `${CollectiveId}`;
-      if (args.type) query.where.type = args.type;
-      if (args.limit) query.limit = args.limit;
-      if (args.offset) query.offset = args.offset;
-
-      // Add date ranges to the query
-      if (args.dateFrom || args.dateTo) {
-        query.where.createdAt = {};
-        if (args.dateFrom) query.where.createdAt[Op.gte] = args.dateFrom;
-        if (args.dateTo) query.where.createdAt[Op.lte] = args.dateTo;
-      }
-      query.where = JSON.stringify(query.where);
-      const transactionsEndpointResult = await axios.get(`${config.ledger.suffixTransactionUrl}?${queryString.stringify(query)}`);
+      ledgerQuery.where = JSON.stringify(ledgerQuery.where);
+      const transactionsEndpointResult = await axios
+        .get(`${config.ledger.suffixTransactionUrl}?${queryString.stringify(ledgerQuery)}`);
       const ledgerTransactions = groupBy(transactionsEndpointResult.data || [], 'LegacyCreditTransactionId');
+      // sort keys of result by legacy id DESC as lodash groupBy changes the order
       const apiTransactions = [];
-      for (const [key,value] of Object.entries(ledgerTransactions)){
-          apiTransactions.push(parseLedgerTransactionToApiFormat(key, value));
+      for (const key of Object.keys(ledgerTransactions).sort((a, b) => b - a)){
+        // mapping legacy info to parse inside ledger mapping
+        const legacyMatchingTransaction = getAlltransactionsResult.filter(t => {
+          return t.id === ledgerTransactions[key][0].LegacyDebitTransactionId
+          || t.id === ledgerTransactions[key][0].LegacyCreditTransactionId;
+        })[0];
+        let uuid, VirtualCardCollectiveId, HostCollectiveId, RefundTransactionId;
+        if (legacyMatchingTransaction) {
+          uuid = legacyMatchingTransaction.uuid;
+          VirtualCardCollectiveId = legacyMatchingTransaction.UsingVirtualCardFromCollectiveId;
+          HostCollectiveId = legacyMatchingTransaction.HostCollectiveId;
+          RefundTransactionId = legacyMatchingTransaction.RefundTransactionId;
+        }
+        apiTransactions.push(
+          parseLedgerTransactionToApiFormat(
+            key,
+            ledgerTransactions[key],
+            {
+              AccountId: args.CollectiveId,
+              legacyUuid: uuid,
+              VirtualCardCollectiveId,
+              HostCollectiveId,
+              RefundTransactionId,
+            },
+          )
+        );
       }
       return apiTransactions;
     },
@@ -1285,5 +1296,28 @@ const queries = {
     },
   },
 };
+
+/* Reusable methods
+*/
+const getAllTransactions = async (_, args, attributes) => {
+  // Load collective
+  const { CollectiveId, collectiveSlug } = args;
+  if (!CollectiveId && !collectiveSlug) throw new Error('You must specify a collective ID or a Slug');
+  const where = CollectiveId ? { id: CollectiveId } : { slug: collectiveSlug };
+  const collective = await models.Collective.findOne({ where });
+  if (!collective) throw new Error('This collective does not exist');
+
+  // Load transactions
+  return collective.getTransactions({
+    attributes: attributes,
+    order: [['createdAt', 'DESC']],
+    type: args.type,
+    limit: args.limit,
+    offset: args.offset,
+    startDate: args.dateFrom,
+    endDate: args.dateTo,
+  });
+};
+
 
 export default queries;
