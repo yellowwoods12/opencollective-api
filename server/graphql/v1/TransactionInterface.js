@@ -152,6 +152,9 @@ const TransactionFields = () => {
         if (transaction && transaction.getHostCollective) {
           return transaction.getHostCollective();
         }
+        if (get(transaction, 'host.id')) {
+          return models.Collective.findById(get(transaction, 'host.id'));
+        }
         return null;
       },
     },
@@ -212,9 +215,10 @@ const TransactionFields = () => {
     paymentMethod: {
       type: PaymentMethodType,
       resolve(transaction, args, req) {
-        if (!transaction.PaymentMethodId) return null;
+        const paymentMethodId = transaction.PaymentMethodId || get(transaction, 'paymentMethod.id');
+        if (!paymentMethodId) return null;
         // TODO: put behind a login check
-        return req.loaders.paymentMethods.findById.load(transaction.PaymentMethodId);
+        return req.loaders.paymentMethods.findById.load(paymentMethodId);
       },
     },
   };
