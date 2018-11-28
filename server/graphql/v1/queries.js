@@ -325,6 +325,7 @@ const queries = {
       includeVirtualCards: { type: GraphQLBoolean },
     },
     async resolve(_, args) {
+      args.CollectiveId = args.CollectiveId || (await fetchCollectiveId(args.collectiveSlug));
       return getAllTransactions(_, args);
     },
   },
