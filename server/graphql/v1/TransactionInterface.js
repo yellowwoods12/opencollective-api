@@ -148,14 +148,24 @@ const TransactionFields = () => {
     },
     host: {
       type: UserCollectiveType,
-      resolve(transaction) {
+      async resolve(transaction) {
         if (transaction && transaction.getHostCollective) {
           return transaction.getHostCollective();
         }
-        if (get(transaction, 'host.id')) {
-          return models.Collective.findById(get(transaction, 'host.id'));
+        const FromCollectiveId = transaction.fromCollective.id;
+        const CollectiveId = transaction.collective.id;
+        let HostCollectiveId = transaction.HostCollectiveId;
+        // if the transaction is from the perspective of the fromCollective
+        if (!HostCollectiveId) {
+          const fromCollective = await models.Collective.findById(FromCollectiveId);
+          HostCollectiveId = await fromCollective.getHostCollectiveId();
+          // if fromCollective has no host, we try the collective
+          if (!HostCollectiveId) {
+            const collective = await models.Collective.findById(CollectiveId);
+            HostCollectiveId = await collective.getHostCollectiveId();
+          }
         }
-        return null;
+        return models.Collective.findById(HostCollectiveId);
       },
     },
     createdByUser: {

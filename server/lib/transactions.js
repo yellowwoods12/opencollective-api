@@ -179,7 +179,13 @@ export async function createTransactionFromInKindDonation(expenseTransaction) {
  * @return {Object} returns a transaction with a similar format of the model Transaction
  */
 export function parseLedgerTransactionToApiFormat(legacyId, transactions, legacyInformation) {
-  const { AccountId, legacyUuid, VirtualCardCollectiveId } = legacyInformation;
+  const {
+    AccountId,
+    legacyUuid,
+    VirtualCardCollectiveId,
+    HostCollectiveId,
+    RefundTransactionId,
+  } = legacyInformation;
   const creditTransaction = transactions.filter(t => {
     return (t.category === ledgerTransactionCategories.ACCOUNT
       || t.category === `REFUND: ${ledgerTransactionCategories.ACCOUNT}`)
@@ -251,20 +257,14 @@ export function parseLedgerTransactionToApiFormat(legacyId, transactions, legacy
     updatedAt: accountTransaction[0].updatedAt,
     uuid: legacyUuid,
     UsingVirtualCardFromCollectiveId: VirtualCardCollectiveId,
+    HostCollectiveId,
     // createdByUser: { type: UserType },
-    // host: { type: CollectiveInterfaceType },
-    // paymentMethod: { type: PaymentMethodType },
     // privateMessage: { type: GraphQLString },
-    // refundTransaction: { type: TransactionInterfaceType },
   };
-
-  // setting host
-  const hostId = type === 'CREDIT'
-    ? get(creditTransaction[0], 'toWallet.OwnerAccountId')
-    : get(creditTransaction[0], 'fromWallet.OwnerAccountId');
-  if (hostId) {
-    parsedTransaction.host = {
-      id: parseInt(hostId),
+  // setting refund transaction
+  if (RefundTransactionId) {
+    parsedTransaction.refundTransaction = {
+      id: RefundTransactionId,
     };
   }
   // setting paymentMethod
