@@ -185,6 +185,9 @@ const TransactionFields = () => {
         if (transaction && transaction.getVirtualCardEmitterCollective) {
           return transaction.getVirtualCardEmitterCollective();
         }
+        if (transaction && transaction.UsingVirtualCardFromCollectiveId) {
+          return models.Collective.findById(transaction.UsingVirtualCardFromCollectiveId);
+        }
         return null;
       },
     },
