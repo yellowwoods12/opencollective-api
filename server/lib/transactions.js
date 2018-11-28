@@ -219,7 +219,6 @@ export function parseLedgerTransactionToApiFormat(legacyId, transactions, legacy
       || t.category === `REFUND: ${ledgerTransactionCategories.ACCOUNT}`)
     && t.type === type;
   });
-
   // setting up currency and amount information
   const hostFeeInHostCurrency = hostFeeTransaction.length > 0 ? hostFeeTransaction[0].amount : 0;
   const platformFeeInHostCurrency = platformFeeTransaction.length > 0 ? platformFeeTransaction[0].amount : 0;
@@ -236,28 +235,26 @@ export function parseLedgerTransactionToApiFormat(legacyId, transactions, legacy
   const currency = accountTransaction[0].forexRateSourceCoin;
   const hostCurrency = accountTransaction[0].forexRateDestinationCoin;
   const forexRate = accountTransaction[0].forexRate;
-  if (currency != hostCurrency) {
-    netAmountInCollectiveCurrency = netAmountInCollectiveCurrency * forexRate;
-  }
+
   const parsedTransaction = {
     id: legacyId,
-    amount: amount,
-    currency: currency,
-    hostCurrency: hostCurrency,
+    type,
+    amount,
+    currency,
+    HostCollectiveId,
+    hostCurrency,
+    hostFeeInHostCurrency,
+    platformFeeInHostCurrency,
+    paymentProcessorFeeInHostCurrency,
     hostCurrencyFxRate: forexRate,
-    netAmountInCollectiveCurrency: netAmountInCollectiveCurrency,
-    hostFeeInHostCurrency: hostFeeInHostCurrency,
-    platformFeeInHostCurrency: platformFeeInHostCurrency,
-    paymentProcessorFeeInHostCurrency: paymentProcessorFeeInHostCurrency,
-    fromCollective: { id: FromAccountId },
-    collective: { id: ToAccountId },
-    type: type,
+    netAmountInCollectiveCurrency: parseInt(netAmountInCollectiveCurrency),
+    fromCollective: { id: type === 'DEBIT' ? FromAccountId : ToAccountId },
+    collective: { id: type === 'DEBIT' ? ToAccountId :FromAccountId },
     description: accountTransaction[0].description,
     createdAt: accountTransaction[0].createdAt,
     updatedAt: accountTransaction[0].updatedAt,
     uuid: legacyUuid,
     UsingVirtualCardFromCollectiveId: VirtualCardCollectiveId,
-    HostCollectiveId,
     // createdByUser: { type: UserType },
     // privateMessage: { type: GraphQLString },
   };
