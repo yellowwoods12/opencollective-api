@@ -173,10 +173,13 @@ export async function createTransactionFromInKindDonation(expenseTransaction) {
 /**
  * Gets "ledger"(from the ledger service) transactions and format them
  * to the api transactions
+ * @param {Number} legacyId - corresponding id from the opencollective-api Transactions table
  * @param {Array} transactions - array of transactions representing one "legacy" transaction
+ * @param {Object} legacyInformation - extra information from corresponding legacy transaction
  * @return {Object} returns a transaction with a similar format of the model Transaction
  */
-export function parseLedgerTransactionToApiFormat(legacyId, transactions, AccountId, legacyUuid) {
+export function parseLedgerTransactionToApiFormat(legacyId, transactions, legacyInformation) {
+  const { AccountId, legacyUuid, VirtualCardCollectiveId } = legacyInformation;
   const creditTransaction = transactions.filter(t => {
     return (t.category === ledgerTransactionCategories.ACCOUNT
       || t.category === `REFUND: ${ledgerTransactionCategories.ACCOUNT}`)
@@ -247,6 +250,7 @@ export function parseLedgerTransactionToApiFormat(legacyId, transactions, Accoun
     createdAt: accountTransaction[0].createdAt,
     updatedAt: accountTransaction[0].updatedAt,
     uuid: legacyUuid,
+    UsingVirtualCardFromCollectiveId: VirtualCardCollectiveId,
     // createdByUser: { type: UserType },
     // host: { type: CollectiveInterfaceType },
     // paymentMethod: { type: PaymentMethodType },
