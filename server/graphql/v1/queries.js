@@ -305,7 +305,7 @@ const queries = {
    * Given a collective slug or id, returns all its transactions
    */
   allTransactionsOld: {
-  // allTransactions: {
+    // allTransactions: {
     type: new GraphQLList(TransactionInterfaceType),
     description: `
     Given a collective, returns all its transactions:
@@ -366,16 +366,20 @@ const queries = {
         offset: args.offset,
       };
       ledgerQuery.where = JSON.stringify(ledgerQuery.where);
-      const transactionsEndpointResult = await axios
-        .get(`${config.ledger.suffixTransactionUrl}?${queryString.stringify(ledgerQuery)}`);
+      console.log(`${config.ledger.transactionUrl}?${queryString.stringify(ledgerQuery)}`);
+      const transactionsEndpointResult = await axios.get(
+        `${config.ledger.transactionUrl}?${queryString.stringify(ledgerQuery)}`,
+      );
       const ledgerTransactions = groupBy(transactionsEndpointResult.data || [], 'LegacyCreditTransactionId');
       // sort keys of result by legacy id DESC as lodash groupBy changes the order
       const apiTransactions = [];
-      for (const key of Object.keys(ledgerTransactions).sort((a, b) => b - a)){
+      for (const key of Object.keys(ledgerTransactions).sort((a, b) => b - a)) {
         // mapping legacy info to parse inside ledger mapping
         const legacyMatchingTransaction = getAlltransactionsResult.filter(t => {
-          return t.id === ledgerTransactions[key][0].LegacyDebitTransactionId
-          || t.id === ledgerTransactions[key][0].LegacyCreditTransactionId;
+          return (
+            t.id === ledgerTransactions[key][0].LegacyDebitTransactionId ||
+            t.id === ledgerTransactions[key][0].LegacyCreditTransactionId
+          );
         })[0];
         let uuid, VirtualCardCollectiveId, HostCollectiveId, RefundTransactionId;
         if (legacyMatchingTransaction) {
@@ -385,17 +389,13 @@ const queries = {
           RefundTransactionId = legacyMatchingTransaction.RefundTransactionId;
         }
         apiTransactions.push(
-          parseLedgerTransactionToApiFormat(
-            key,
-            ledgerTransactions[key],
-            {
-              AccountId: args.CollectiveId,
-              legacyUuid: uuid,
-              VirtualCardCollectiveId,
-              HostCollectiveId,
-              RefundTransactionId,
-            },
-          )
+          parseLedgerTransactionToApiFormat(key, ledgerTransactions[key], {
+            AccountId: args.CollectiveId,
+            legacyUuid: uuid,
+            VirtualCardCollectiveId,
+            HostCollectiveId,
+            RefundTransactionId,
+          }),
         );
       }
       return apiTransactions;
@@ -1299,7 +1299,7 @@ const queries = {
 };
 
 /* Reusable methods
-*/
+ */
 const getAllTransactions = async (_, args, attributes) => {
   // Load collective
   const { CollectiveId, collectiveSlug } = args;
@@ -1319,6 +1319,5 @@ const getAllTransactions = async (_, args, attributes) => {
     endDate: args.dateTo,
   });
 };
-
 
 export default queries;

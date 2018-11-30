@@ -179,17 +179,13 @@ export async function createTransactionFromInKindDonation(expenseTransaction) {
  * @return {Object} returns a transaction with a similar format of the model Transaction
  */
 export function parseLedgerTransactionToApiFormat(legacyId, transactions, legacyInformation) {
-  const {
-    AccountId,
-    legacyUuid,
-    VirtualCardCollectiveId,
-    HostCollectiveId,
-    RefundTransactionId,
-  } = legacyInformation;
+  const { AccountId, legacyUuid, VirtualCardCollectiveId, HostCollectiveId, RefundTransactionId } = legacyInformation;
   const creditTransaction = transactions.filter(t => {
-    return (t.category === ledgerTransactionCategories.ACCOUNT
-      || t.category === `REFUND: ${ledgerTransactionCategories.ACCOUNT}`)
-    && t.type === 'CREDIT';
+    return (
+      (t.category === ledgerTransactionCategories.ACCOUNT ||
+        t.category === `REFUND: ${ledgerTransactionCategories.ACCOUNT}`) &&
+      t.type === 'CREDIT'
+    );
   });
   // setting up type, From and to accounts
   const FromAccountId = parseInt(creditTransaction[0].FromAccountId);
@@ -198,38 +194,46 @@ export function parseLedgerTransactionToApiFormat(legacyId, transactions, legacy
   // finding fees, accounts and currency conversion transactions
   // separately
   const platformFeeTransaction = transactions.filter(t => {
-    return (t.category === ledgerTransactionCategories.PLATFORM
-      || t.category === `REFUND: ${ledgerTransactionCategories.PLATFORM}`)
-    && t.type === 'DEBIT';
+    return (
+      (t.category === ledgerTransactionCategories.PLATFORM ||
+        t.category === `REFUND: ${ledgerTransactionCategories.PLATFORM}`) &&
+      t.type === 'DEBIT'
+    );
   });
   const paymentFeeTransaction = transactions.filter(t => {
-    return (t.category === ledgerTransactionCategories.PAYMENT_PROVIDER
-      || t.category === `REFUND: ${ledgerTransactionCategories.PAYMENT_PROVIDER}`)
-    && t.type === 'DEBIT';
+    return (
+      (t.category === ledgerTransactionCategories.PAYMENT_PROVIDER ||
+        t.category === `REFUND: ${ledgerTransactionCategories.PAYMENT_PROVIDER}`) &&
+      t.type === 'DEBIT'
+    );
   });
   const hostFeeTransaction = transactions.filter(t => {
-    return (t.category === ledgerTransactionCategories.WALLET_PROVIDER
-      || t.category === `REFUND: ${ledgerTransactionCategories.WALLET_PROVIDER}`)
-    && t.type === 'DEBIT';
+    return (
+      (t.category === ledgerTransactionCategories.WALLET_PROVIDER ||
+        t.category === `REFUND: ${ledgerTransactionCategories.WALLET_PROVIDER}`) &&
+      t.type === 'DEBIT'
+    );
   });
-  const accountTransaction = type === 'CREDIT'
-    ? creditTransaction
-    : transactions.filter(t => {
-    return (t.category === ledgerTransactionCategories.ACCOUNT
-      || t.category === `REFUND: ${ledgerTransactionCategories.ACCOUNT}`)
-    && t.type === type;
-  });
+  const accountTransaction =
+    type === 'CREDIT'
+      ? creditTransaction
+      : transactions.filter(t => {
+          return (
+            (t.category === ledgerTransactionCategories.ACCOUNT ||
+              t.category === `REFUND: ${ledgerTransactionCategories.ACCOUNT}`) &&
+            t.type === type
+          );
+        });
   // setting up currency and amount information
   const hostFeeInHostCurrency = hostFeeTransaction.length > 0 ? hostFeeTransaction[0].amount : 0;
   const platformFeeInHostCurrency = platformFeeTransaction.length > 0 ? platformFeeTransaction[0].amount : 0;
   const paymentProcessorFeeInHostCurrency = paymentFeeTransaction.length > 0 ? paymentFeeTransaction[0].amount : 0;
   let amount = accountTransaction[0].amount;
-  let netAmountInCollectiveCurrency = amount + hostFeeInHostCurrency
-    + platformFeeInHostCurrency + paymentProcessorFeeInHostCurrency;
+  let netAmountInCollectiveCurrency =
+    amount + hostFeeInHostCurrency + platformFeeInHostCurrency + paymentProcessorFeeInHostCurrency;
   // if type is DEBIT, amount and netAmount are calculated differently
   if (type === 'DEBIT') {
-    amount = amount - hostFeeInHostCurrency
-      - platformFeeInHostCurrency - paymentProcessorFeeInHostCurrency;
+    amount = amount - hostFeeInHostCurrency - platformFeeInHostCurrency - paymentProcessorFeeInHostCurrency;
     netAmountInCollectiveCurrency = accountTransaction[0].amount;
   }
   const currency = accountTransaction[0].forexRateSourceCoin;

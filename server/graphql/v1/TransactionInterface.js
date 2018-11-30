@@ -247,12 +247,9 @@ export const TransactionExpenseType = new GraphQLObjectType({
         type: GraphQLString,
         resolve(transaction) {
           const expense = transaction.getExpense
-          ? transaction.getExpense().then(expense => expense && expense.description)
-          : null;
-          return (
-            transaction.description ||
-            expense
-          );
+            ? transaction.getExpense().then(expense => expense && expense.description)
+            : null;
+          return transaction.description || expense;
         },
       },
       privateMessage: {
@@ -296,42 +293,31 @@ export const TransactionOrderType = new GraphQLObjectType({
           const getOrder = transaction.getOrder
             ? transaction.getOrder().then(order => order && order.description)
             : null;
-          return (
-            transaction.description ||
-            getOrder
-          );
+          return transaction.description || getOrder;
         },
       },
       privateMessage: {
         type: GraphQLString,
         resolve(transaction) {
-          return transaction.getOrder
-            ? transaction.getOrder().then(order => order && order.privateMessage)
-            : null;
+          return transaction.getOrder ? transaction.getOrder().then(order => order && order.privateMessage) : null;
         },
       },
       publicMessage: {
         type: GraphQLString,
         resolve(transaction) {
-          return transaction.getOrder
-            ? transaction.getOrder().then(order => order && order.publicMessage)
-            : null;
+          return transaction.getOrder ? transaction.getOrder().then(order => order && order.publicMessage) : null;
         },
       },
       order: {
         type: OrderType,
         resolve(transaction) {
-          return transaction.getOrder
-            ? transaction.getOrder()
-            : null;
+          return transaction.getOrder ? transaction.getOrder() : null;
         },
       },
       subscription: {
         type: SubscriptionType,
         resolve(transaction) {
-          return transaction.getOrder
-            ? transaction.getOrder().then(order => order && order.getSubscription())
-            : null;
+          return transaction.getOrder ? transaction.getOrder().then(order => order && order.getSubscription()) : null;
         },
       },
     };
