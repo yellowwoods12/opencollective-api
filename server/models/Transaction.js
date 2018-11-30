@@ -509,10 +509,16 @@ export default (Sequelize, DataTypes) => {
     );
   };
 
-  const getTransactionWithNestedProperties = async (transaction) => {
+  const getTransactionWithNestedProperties = async transaction => {
     const fromCollective = await models.Collective.findById(transaction.FromCollectiveId);
-    transaction.fromCollectiveSlug = fromCollective.slug;
+    const fromCollectiveHost = await fromCollective.getHostCollective();
     const collective = await models.Collective.findById(transaction.CollectiveId);
+    const collectiveHost = await collective.getHostCollective();
+    transaction.fromCollectiveSlug = fromCollective.slug;
+    transaction.FromCollectiveHostId = fromCollectiveHost && fromCollectiveHost.id;
+    transaction.fromCollectiveHostSlug = fromCollectiveHost && fromCollectiveHost.slug;
+    transaction.CollectiveHostId = collectiveHost && collectiveHost.id;
+    transaction.collectiveHostSlug = collectiveHost && collectiveHost.slug;
     transaction.collectiveSlug = collective.slug;
     // get transaction DEBIT equivalent
     const debitTransaction = models.Transaction.findOne({
@@ -574,7 +580,7 @@ export default (Sequelize, DataTypes) => {
     return transaction;
   };
 
-  Transaction.postTransactionToLedger = async (transaction) => {
+  Transaction.postTransactionToLedger = async transaction => {
     if (transaction.deletedAt || transaction.type !== 'CREDIT') {
       return Promise.resolve();
     }
