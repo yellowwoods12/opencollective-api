@@ -2,11 +2,12 @@
 
 import Promise from 'bluebird';
 import amqp from 'amqplib';
+import axios from 'axios';
 import activities from '../constants/activities';
 import { TransactionTypes } from '../constants/transactions';
 import CustomDataTypes from './DataTypes';
 import uuidv4 from 'uuid/v4';
-import { ledgerQueue } from 'config';
+import { ledger, ledgerQueue } from 'config';
 import debugLib from 'debug';
 import { toNegative } from '../lib/math';
 import { exportToCSV } from '../lib/utils';
@@ -586,16 +587,13 @@ export default (Sequelize, DataTypes) => {
     }
     try {
       const ledgerTransaction = await getTransactionWithNestedProperties(transaction);
-      // return axios.post(ledger.postTransactionUrl, ledgerTransaction);
+      if (!process.env.QUEUE_ENABLED) {
+        return axios.post(ledger.transactionUrl, ledgerTransaction);
+      }
       const conn = await amqp.connect(ledgerQueue.url);
       const channel = await conn.createChannel();
       await channel.assertQueue(ledgerQueue.transactionQueue, { exclusive: false });
-
       channel.sendToQueue(ledgerQueue.transactionQueue, Buffer.from(JSON.stringify(ledgerTransaction), 'utf8'));
-      // wait half a second to close channel after msg is actually sent
-      setTimeout(() => {
-        conn.close();
-      }, 250);
     } catch (error) {
       throw error;
     }
