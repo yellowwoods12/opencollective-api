@@ -304,8 +304,7 @@ const queries = {
   /*
    * Given a collective slug or id, returns all its transactions
    */
-  allTransactionsOld: {
-    // allTransactions: {
+  allTransactions: {
     type: new GraphQLList(TransactionInterfaceType),
     description: `
     Given a collective, returns all its transactions:
@@ -334,8 +333,7 @@ const queries = {
    * Given a collective slug, returns all transactions with the normalized
    * Ledger transactions table
    */
-  // allTransactionsFromLedger: {
-  allTransactions: {
+  allTransactionsFromLedger: {
     type: new GraphQLList(TransactionInterfaceType),
     args: {
       CollectiveId: { type: GraphQLInt },
