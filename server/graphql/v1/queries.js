@@ -366,7 +366,6 @@ const queries = {
         offset: args.offset,
       };
       ledgerQuery.where = JSON.stringify(ledgerQuery.where);
-      console.log(`${config.ledger.transactionUrl}?${queryString.stringify(ledgerQuery)}`);
       const transactionsEndpointResult = await axios.get(
         `${config.ledger.transactionUrl}?${queryString.stringify(ledgerQuery)}`,
       );

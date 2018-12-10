@@ -593,7 +593,7 @@ export default (Sequelize, DataTypes) => {
       const conn = await amqp.connect(ledgerQueue.url);
       const channel = await conn.createChannel();
       await channel.assertQueue(ledgerQueue.transactionQueue, { exclusive: false });
-      channel.sendToQueue(ledgerQueue.transactionQueue, Buffer.from(JSON.stringify(ledgerTransaction), 'utf8'));
+      channel.sendToQueue(ledgerQueue.transactionQueue, Buffer.from(JSON.stringify([ledgerTransaction]), 'utf8'));
     } catch (error) {
       throw error;
     }
